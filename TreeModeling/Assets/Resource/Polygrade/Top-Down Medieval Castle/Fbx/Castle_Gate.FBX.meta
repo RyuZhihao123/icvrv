@@ -1,0 +1,131 @@
+fileFormatVersion: 2
+guid: fc9cebe5a1fb23341bc3c2e60a1e81e2
+timeCreated: 1476734440
+licenseType: Free
+ModelImporter:
+  serializedVersion: 18
+  fileIDToRecycleName:
+    100000: //RootNode
+    100002: Castle_Gate_Pillar
+    100004: Castle_Gate_Pillar001
+    100006: Flag006
+    100008: Flag007
+    100010: GateMetal
+    100012: Hanging_flag
+    100014: Hanging_flag002
+    100016: Torch003
+    100018: Torch004
+    100020: Torch005
+    100022: Torch006
+    400000: //RootNode
+    400002: Castle_Gate_Pillar
+    400004: Castle_Gate_Pillar001
+    400006: Flag006
+    400008: Flag007
+    400010: GateMetal
+    400012: Hanging_flag
+    400014: Hanging_flag002
+    400016: Torch003
+    400018: Torch004
+    400020: Torch005
+    400022: Torch006
+    2300000: //RootNode
+    2300002: Castle_Gate_Pillar
+    2300004: Castle_Gate_Pillar001
+    2300006: Flag006
+    2300008: Flag007
+    2300010: GateMetal
+    2300012: Hanging_flag
+    2300014: Hanging_flag002
+    2300016: Torch003
+    2300018: Torch004
+    2300020: Torch005
+    2300022: Torch006
+    3300000: //RootNode
+    3300002: Castle_Gate_Pillar
+    3300004: Castle_Gate_Pillar001
+    3300006: Flag006
+    3300008: Flag007
+    3300010: GateMetal
+    3300012: Hanging_flag
+    3300014: Hanging_flag002
+    3300016: Torch003
+    3300018: Torch004
+    3300020: Torch005
+    3300022: Torch006
+    4300000: Castle_Gate
+    4300002: Castle_Gate_Pillar001
+    4300004: Castle_Gate_Pillar
+    4300006: GateMetal
+    4300008: Torch003
+    4300010: Flag006
+    4300012: Flag007
+    4300014: Hanging_flag002
+    4300016: Hanging_flag
+    4300018: Torch006
+    4300020: Torch005
+    4300022: Torch004
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    optimizeGameObjects: 0
+    motionNodeName: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    animationCompression: 1
+    animationRotationError: .5
+    animationPositionError: .5
+    animationScaleError: .5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    importBlendShapes: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    splitTangentsAcrossUV: 1
+    normalImportMode: 0
+    tangentImportMode: 1
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    human: []
+    skeleton: []
+    armTwist: .5
+    foreArmTwist: .5
+    upperLegTwist: .5
+    legTwist: .5
+    armStretch: .0500000007
+    legStretch: .0500000007
+    feetSpacing: 0
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 0
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
