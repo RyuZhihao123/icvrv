@@ -292,6 +292,9 @@ public class TreeController : MonoBehaviour
         m_ctrlRay.origin = m_controller0.transform.position;
         m_ctrlRay.direction = m_ctrldirection.position - m_controller0.transform.position;
 
+        if (HandleMovingEvent())
+            return;
+
         // 处理一些手柄的交互式操作
         DrawingLasso();
         DrawingFreeSketch();
@@ -353,43 +356,6 @@ public class TreeController : MonoBehaviour
                     if (m_btnClearAll.name == clickObj.name) 
                         ClearAllData();
                 }
-            }
-        }
-        else // 如果没有指向某个collider
-        {
-            // 更新手柄球球和laser
-            m_laserBall.transform.position = m_ctrlRay.origin + m_ctrlRay.direction.normalized * 100;
-
-            m_laserRender.GetComponent<LineRenderer>().SetPosition(0, m_controller0.transform.position);
-            m_laserRender.GetComponent<LineRenderer>().SetPosition(1, m_ctrlRay.origin+m_ctrlRay.direction.normalized * 100);
-        }
-
-        // 处理Touching Pad的Moving Event
-        //if((Controller.UPvr_GetKey(0,Pvr_KeyCode.TRIGGER) && Controller.UPvr_IsTouching(0)))
-        {
-            if(Controller.UPvr_GetSwipeDirection(0) == SwipeDirection.SwipeLeft  || Input.GetKey(KeyCode.A))
-            {
-                m_picoSystem.transform.RotateAround(new Vector3(0.0f,0.0f,0.0f),new Vector3(0.0f, 1.0f, 0.0f), 0.5f);
-                m_canvas.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), 0.5f);
-            }
-            if (Controller.UPvr_GetSwipeDirection(0) == SwipeDirection.SwipeRight || Input.GetKey(KeyCode.D))
-            {
-                m_picoSystem.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), -0.5f);
-                m_canvas.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), -0.5f);
-            }
-            if (Controller.UPvr_GetSwipeDirection(0) == SwipeDirection.SwipeUp || Input.GetKey(KeyCode.W))
-            {
-                Vector3 t = m_headCamera.GetComponent<Camera>().transform.forward.normalized;
-                Vector3 dir = new Vector3(t.x,0.0f,t.z);
-                m_picoSystem.transform.Translate(0.5f*dir,Space.World);
-                m_canvas.transform.Translate(0.5f * dir, Space.World);
-            }
-            if (Controller.UPvr_GetSwipeDirection(0) == SwipeDirection.SwipeDown || Input.GetKey(KeyCode.S))
-            {
-                Vector3 t = m_headCamera.GetComponent<Camera>().transform.forward.normalized;
-                Vector3 dir = -new Vector3(t.x, 0.0f, t.z);
-                m_picoSystem.transform.Translate(0.5f * dir, Space.World);
-                m_canvas.transform.Translate(0.5f * dir, Space.World);
             }
         }
     }
@@ -476,6 +442,63 @@ public class TreeController : MonoBehaviour
             }
         }
     }
+
+    private bool m_isTriggerDown = false;
+    private bool HandleMovingEvent()
+    {
+        // 首先检测Trigger的按键判定
+        if (Controller.UPvr_GetKeyDown(0, Pvr_KeyCode.TRIGGER))
+            m_isTriggerDown = true;
+        if (Controller.UPvr_GetKeyUp(0, Pvr_KeyCode.TRIGGER))
+            m_isTriggerDown = false;
+
+        // 处理Touching Pad的Moving Event
+        if (m_isTriggerDown && Controller.UPvr_GetKey(0,Pvr_KeyCode.TOUCHPAD))   // 【重要】如果在PC模式下请注释掉该行
+        {
+            Vector2 _touchPos = Controller.UPvr_GetTouchPadPosition(0) - new Vector2(127.5f, 127.5f);
+            Vector3 touchDir = new Vector3(_touchPos.x, 0.0f, _touchPos.y).normalized;
+            Vector3 headDir = m_headCamera.GetComponent<Camera>().transform.forward.normalized;
+            headDir.y = 0.0f;
+            Vector3 movedir = Quaternion.FromToRotation(new Vector3(1.0f, 0.0f, 0.0f), headDir)*touchDir; // 移动的方向
+
+            m_picoSystem.transform.position += movedir * _touchPos.magnitude * 0.001f;  // 移动头盔
+        }
+
+        // 以下为PC上处理移动（WASD）
+        if (Input.GetKey(KeyCode.A))
+        {
+            m_picoSystem.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), 0.5f);
+            //m_canvas.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), 0.5f);
+        }
+        if (Input.GetKey(KeyCode.D))
+        {
+            m_picoSystem.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), -0.5f);
+            //m_canvas.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), -0.5f);
+        }
+        if (Input.GetKey(KeyCode.W))
+        {
+            Vector3 t = m_headCamera.GetComponent<Camera>().transform.forward.normalized;
+            Vector3 dir = new Vector3(t.x, 0.0f, t.z);
+            m_picoSystem.transform.Translate(0.5f * dir, Space.World);
+            //m_canvas.transform.Translate(0.5f * dir, Space.World);
+        }
+        if (Input.GetKey(KeyCode.S))
+        {
+            Vector3 t = m_headCamera.GetComponent<Camera>().transform.forward.normalized;
+            Vector3 dir = -new Vector3(t.x, 0.0f, t.z);
+            m_picoSystem.transform.Translate(0.5f * dir, Space.World);
+            //m_canvas.transform.Translate(0.5f * dir, Space.World);
+        }
+
+        // 更新手柄球球和laser方向
+        m_laserBall.transform.position = m_ctrlRay.origin + m_ctrlRay.direction.normalized * 100;
+
+        m_laserRender.GetComponent<LineRenderer>().SetPosition(0, m_controller0.transform.position);
+        m_laserRender.GetComponent<LineRenderer>().SetPosition(1, m_ctrlRay.origin + m_ctrlRay.direction.normalized * 100);
+
+        return m_isTriggerDown;
+    }
+
 
 
     /***********【UI测试】，这个函数在Pico设备中没有响应***********/
