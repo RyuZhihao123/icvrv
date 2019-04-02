@@ -18,9 +18,11 @@ public class TreeController : MonoBehaviour
     // UI控件
     public GameObject m_canvas;      // canvas: UI控件的幕布
     public Button m_btnIterateOnce;  // 按钮: Iterate for Once 迭代一次按钮
+    public Button m_btnBrush;        // 按钮：根据Brush创建新的植物
     public Button m_btnClearAll;     // 按钮: Clear all data 清除按钮
-    public Toggle m_toggleLasso;     // 开关按钮: 是否绘制Lasso的check box
+    public Toggle m_toggleLasso;     // 开关按钮：是否绘制Lasso的check box
     public Toggle m_toggleFreeSketch;// 开关按钮：是否进行FreeSketck的check box
+    public Toggle m_toggleBrush;     // 开关按钮：是否进行Brush的check box
 
     // 场景中的物体们
     public ParticleSystem m_particleSystem;  // 粒子系统（生成植物的绿光效果）
@@ -31,6 +33,10 @@ public class TreeController : MonoBehaviour
     private List<Vector3> m_lassoPoints;  // 套索Lasso上的所有的点
     public GameObject m_SketchRender;     // 手绘枝干（FreeSketch）的GameObject
     private List<Vector3> m_sketchPoints;  // Free Sketch绘制的坐标点
+
+    public List<GameObject> m_brushRender;       // 绘制Brush的GameObject（因为可能有多次Brush同时出现）
+    public List<ParticleSystem> m_brushParticles; // 绘制Brush的ParticleSystem
+    private List<List<Vector3>> m_brushPoints;   // Brush上的路径点（单纯记录的路径点）
 
     public Material m_leafMtl;       // 材质：树叶的材质
     public Material m_barkMtl;       // 材质：树干的材质
@@ -50,6 +56,7 @@ public class TreeController : MonoBehaviour
     // 【开关】
     private bool m_isLassoMouseDone = false; // 手柄是否在绘制套索Lasso
     private bool m_isFreeSketched = false;   // 手柄是否在进行FreeSketch
+    private bool m_isBrushMouseDone = false; // 手柄是否在进行Brush绘制
 
     private Thread m_thread;   // 【线程】，因为生成算法耗时，因此生成过程放在线程中完成
 
@@ -72,6 +79,9 @@ public class TreeController : MonoBehaviour
         m_selectedPart = new List<GameObject>();
         m_lassoPoints = new List<Vector3>();
         m_sketchPoints = new List<Vector3>();
+        m_brushRender = new List<GameObject>();
+        m_brushPoints = new List<List<Vector3>>();
+        m_brushParticles = new List<ParticleSystem>();
 
         m_ctrlRay = new Ray();
 
@@ -89,6 +99,8 @@ public class TreeController : MonoBehaviour
 
         if(IsThreadFinished())    // 如果更新植物数据的线程结束了，则创建新的模型
         {
+            Debug.Log("线程结束进行刷新");
+            m_tree.ClearAllMarkerPoints();
             UpdateTreeObjects();  // 根据当前的m_tree生成新的Mesh模型
 
             m_thread = null;      // 结束线程
@@ -97,6 +109,14 @@ public class TreeController : MonoBehaviour
             m_particleSystem.Clear();     
             var em = m_particleSystem.emission;
             em.enabled = false;
+
+            foreach (ParticleSystem ps in m_brushParticles)
+                Destroy(ps);
+            m_brushParticles.Clear();
+            foreach (GameObject m in m_brushRender)
+                Destroy(m);
+            m_brushRender.Clear();
+            m_brushPoints.Clear();
 
             // 解出事件锁
             m_tree.m_isUpdateMesh = false;    
@@ -213,6 +233,20 @@ public class TreeController : MonoBehaviour
         m_thread.Start();
     }
 
+    public void Onclick_BrushGenerate()
+    {
+        // 开启生成植物的线程
+        if (m_tree.kdtree != null)
+            m_tree.kdtree.Clear();
+        m_tree.kdtree = m_tree.BuildKDTree();
+        Debug.Log("MarkerPoints" + m_tree.m_KDmarkerPoints.Count.ToString());
+
+        m_tree.SetupParameters(Tree3D.GrowthMode._Brush);   // 修改一波参数
+
+        m_thread = new Thread(new ThreadStart(SubThreadBrush));
+        m_thread.Start();
+    }
+
     /*******子线程：点击按钮“Iterate for once”后触发***/
     private void SubThreadIterOnce()
     {
@@ -225,6 +259,18 @@ public class TreeController : MonoBehaviour
         while(true)  //不断地进行迭代，直到植物不再生长为止
         {
             m_tree.m_isModified = false; 
+            m_tree.btn_iterateOnce();
+
+            if (!m_tree.m_isModified)  // 如果本轮迭代tree的数据没有得到更新，结束循环
+                break;
+        }
+    }
+
+    private void SubThreadBrush()
+    {
+        while (true)  //不断地进行迭代，直到植物不再生长为止
+        {
+            m_tree.m_isModified = false;
             m_tree.btn_iterateOnce();
 
             if (!m_tree.m_isModified)  // 如果本轮迭代tree的数据没有得到更新，结束循环
@@ -292,12 +338,9 @@ public class TreeController : MonoBehaviour
         m_ctrlRay.origin = m_controller0.transform.position;
         m_ctrlRay.direction = m_ctrldirection.position - m_controller0.transform.position;
 
+        // 处理手柄的一些操作
         if (HandleMovingEvent())
             return;
-
-        // 处理一些手柄的交互式操作
-        DrawingLasso();
-        DrawingFreeSketch();
 
         // 进行raycast
         RaycastHit hitInfo;
@@ -317,6 +360,7 @@ public class TreeController : MonoBehaviour
                 // 如果发生了TouchPad的点击事件
                 if (Controller.UPvr_GetKeyDown(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonDown(0))
                 {
+                    //Debug.Log("Click:" + clickObj.name);
                     // 【1】如果是选择了FreeSketch模式，选择一段枝干，即可开始绘制
                     if(m_toggleFreeSketch.isOn && clickObj.CompareTag("Mesh"))
                     {
@@ -352,12 +396,29 @@ public class TreeController : MonoBehaviour
                     if (m_toggleFreeSketch.name == clickObj.name)
                         m_toggleFreeSketch.isOn = !m_toggleFreeSketch.isOn;
 
-                    // 【5】如果点击了ClearAll按钮，清除所有数据
-                    if (m_btnClearAll.name == clickObj.name) 
+                    // 【5】如果点击了CheckBox Brush，开启Brush的绘制模式
+                    if (m_toggleBrush.name == clickObj.name)
+                        m_toggleBrush.isOn = !m_toggleBrush.isOn;
+
+                    // 【6】如果点击了ClearAll按钮，清除所有数据
+                    if (m_btnClearAll.name == clickObj.name)
+                    {
+                        m_tree.ClearAllMarkerPoints();
                         ClearAllData();
+                    }
+
+                    // 【6】如果点击了Brush按钮，根据当前MarkerPoints创建新的植物
+                    if(m_btnBrush.name == clickObj.name)
+                        Onclick_BrushGenerate();
                 }
             }
+            return;
         }
+
+
+        DrawingBrush(); // 必须防止在这里，因为该函数修改到了MarkerPoints，如果点击了Button Brush之后，仍会触发造成Index越界
+        DrawingLasso();
+        DrawingFreeSketch();
     }
 
     /***************一些手柄的交互式操作*****************/
@@ -381,7 +442,7 @@ public class TreeController : MonoBehaviour
             (Controller.UPvr_GetKeyUp(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonUp(0)))
         {
             m_isLassoMouseDone = false;
-
+            m_tree.ClearAllMarkerPoints();
             ClearAllData();
 
             if (m_lassoPoints.Count > 5)  // Lasso结点足够多，则根据Lasso创建植物
@@ -405,6 +466,94 @@ public class TreeController : MonoBehaviour
                 m_lassoRender.GetComponent<LineRenderer>().SetPositions(
                     m_lassoPoints.ToArray());
             }
+        }
+    }
+    private List<float[]> m_currentParticles = new List<float[]>();
+
+    private void DrawingBrush()
+    {
+        if (!m_toggleBrush.isOn)
+            return;
+        if (m_thread != null && m_thread.ThreadState == ThreadState.Running)
+            return;
+        
+        // 处理鼠标点击事件（开始绘制某段Brush）
+        if(Controller.UPvr_GetKeyDown(0,Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonDown(0))
+        {
+            m_isBrushMouseDone = true;
+            m_currentParticles.Clear();
+
+            // 创建新的点序列
+            m_brushPoints.Add(new List<Vector3>());
+            // 创建新的LineRenderer;
+            GameObject obj = new GameObject();
+            obj.name = "Brush" + m_brushPoints.Count;
+            obj.AddComponent(typeof(LineRenderer));
+            obj.GetComponent<LineRenderer>().startWidth = 0.1f;
+            obj.GetComponent<LineRenderer>().endWidth = 0.1f;
+            m_brushRender.Add(obj);
+            // 创建新的BrushParticles
+            ParticleSystem ps = Instantiate(m_particleSystem);
+            ps.startColor = new Color(Random.Range(0.0f, 9.0f), Random.Range(0.0f, 9.0f), Random.Range(0.0f, 9.0f));
+            m_brushParticles.Add(ps);
+
+            m_n = (m_picoSystem.transform.position - new Vector3(0, 0, 0)).normalized;
+            m_n.y = 0;
+            m_a0 = new Vector3(0, 0, 0);
+        }
+
+        // 如果正在绘制Brush
+        if(m_isBrushMouseDone)
+        {
+            Vector3 p0 = m_ctrlRay.origin;
+            Vector3 u = m_ctrlRay.direction.normalized;
+            float t = (Vector3.Dot(m_n, m_a0) - Vector3.Dot(m_n, p0)) / Vector3.Dot(m_n, u);
+
+            Vector3 p = p0 + t * u;  // p为手柄射线与平面(n,a)的相交点
+
+            int index = m_brushPoints.Count-1;
+
+            if (m_brushPoints[index].Count == 0   // 如果手柄移动量足够大
+                || Vector3.Distance(p, m_brushPoints[index][m_brushPoints[index].Count - 1]) > 0.5)
+            {
+
+                m_brushRender[index].GetComponent<LineRenderer>().positionCount = m_brushPoints[index].Count;
+                m_brushPoints[index].Add(p);
+                m_brushRender[index].GetComponent<LineRenderer>().SetPositions(
+                    m_brushPoints[index].ToArray());
+
+                if(m_brushPoints[index].Count>=2)
+                {
+                    // 基于当前Brush点生成新的MarkerPoints
+                    List<float[]> location = m_tree.UpdateMarkerPointsByBrush(m_brushPoints[index][m_brushPoints[index].Count - 2],
+                        m_brushPoints[index][m_brushPoints[index].Count-1]);
+
+                    m_currentParticles.AddRange(location);
+                    ParticleSystem ps = m_brushParticles[m_brushParticles.Count - 1];
+
+                    var em = ps.emission;
+                    em.enabled = true;
+
+                    ParticleSystem.Particle[] particles_arr = new ParticleSystem.Particle[m_currentParticles.Count];
+                    ps.Emit(particles_arr.Length);
+                    ps.maxParticles = 10000;
+                    ps.GetParticles(particles_arr);
+
+                    for(int i=0; i< m_currentParticles.Count;i+=40)
+                        particles_arr[i].position = new Vector3(m_currentParticles[i][0], m_currentParticles[i][1], m_currentParticles[i][2]);
+
+                    // build the particle system
+                    ps.SetParticles(particles_arr, particles_arr.Length);
+                    em.enabled = false;
+
+                }
+            }
+        }
+
+        if(Controller.UPvr_GetKeyUp(0,Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonUp(0))
+        {
+            m_isBrushMouseDone = false;
+            ClearAllData();
         }
     }
 

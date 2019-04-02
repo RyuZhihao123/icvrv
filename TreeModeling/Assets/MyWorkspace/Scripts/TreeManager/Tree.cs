@@ -83,7 +83,7 @@ namespace TreeManager
         public List<float[]> m_KDmarkerPoints;    /// 空间中的MarkerPoints
         public List<int> m_KDnodes;               /// （无需关注）空间中的MarkerPoints对应的Index
 
-        KdTree<float, int> kdtree;    /// KD树
+        public KdTree<float, int> kdtree;    /// KD树
 
         System.Random m_random;   // 随机数生成器
 
@@ -102,6 +102,9 @@ namespace TreeManager
         public bool m_isUpdateMeshDone;      // 记录mesh是否被更新完毕（即外部线程是否可以终止）
         public bool m_isModified = false;    // 树的形态是否发生修改（这个值被用在基于Lasso生成树处，可见SubThreadLasso()函数）
 
+        // 用于生成画刷路径的东西
+        public List<Vector3> m_markerDirs;   // 记录MarkerPoints方向的东西
+
         /// <summary>
         /// 构造函数是也，用于初始化变量
         /// </summary>
@@ -112,6 +115,8 @@ namespace TreeManager
             m_meshes = new List<Mesh>();
             m_leafMeshes = new List<Mesh>();
             m_selectedMeshes = new List<Mesh>();
+            m_markerDirs = new List<Vector3>();
+
             m_root = new InterNode();
 
             m_faceCount = 5;
@@ -155,17 +160,31 @@ namespace TreeManager
                 m_branchBaseRadius = 0.01f;
                 m_branchRadiusFactor = 1.03f;
             }
+            if (m_growthMode == GrowthMode._Brush)  // 使用Lasso模式下的参数
+            {
+                m_occupancyRadius = 0.5f;
+                m_perceptionRadius = 1.0f;
+                m_interNodeLength = 0.5f;
+                m_leafSize = 0.15f;
+                m_gravityFactor = 0.0f;
+
+                m_branchBaseRadius = 0.01f;
+                m_branchRadiusFactor = 1.03f;
+            }
         }
 
 
         /// <summary>
         /// 清除树的所有数据
         /// </summary>
-        public void ClearAllData()
+        public void ClearAllMarkerPoints()
         {
             m_KDmarkerPoints.Clear();
             m_KDnodes.Clear();
-
+            m_markerDirs.Clear();
+        }
+        public void ClearAllData()
+        {
             if (kdtree != null)
                 kdtree.Clear();
 
@@ -326,6 +345,8 @@ namespace TreeManager
                     {
                         isRemoved[k] = true;
                         nextDir += _dir;
+                        if (m_growthMode == GrowthMode._Brush)  // 如果是Brush模式还要加上这个方向
+                            nextDir += 0.7f * m_markerDirs[percepted[k].Value];
                         m_isRestUsed = true;
                     }
                     else
@@ -335,7 +356,6 @@ namespace TreeManager
                     break;
 
                 nextDir.Normalize();
-
                 nextDir = nextDir + m_gravityFactor * new Vector3(0.0f, 1.0f, 0.0f);
                 nextDir.Normalize();
 
@@ -351,17 +371,17 @@ namespace TreeManager
                 next.b = pos + m_interNodeLength * nextDir;   //[更新]
 
                 // 为这段新的InterNode添加新的Bud;
-
                 float radio = m_random.Next(200, 800) / 1000.0f;  // 0.2 - 0.8
                 Vector3 budDir = GetOneNormalVectorFrom(next.b - next.a) * radio + (next.b - next.a).normalized * (1.0f - radio);
                 budDir = Quaternion.AngleAxis(360.0f * m_random.Next(0, 36000) / 36000.0f, (next.b - next.a).normalized) * budDir;
                 budDir.Normalize();
 
                 Bud newBud = new Bud(1, next.b, budDir);
-                if (i == MaxIterCount-1)
-                    newBud.m_type = 0;
 
                 next.m_buds.Add(newBud);
+
+                if (i == MaxIterCount - 1)
+                    next.m_buds.Add(new Bud(0, next.b, (next.b - next.a).normalized));
 
                 newInterNodes.Add(next);
             }
@@ -405,7 +425,6 @@ namespace TreeManager
             if (buds.Count * eachMarkerCount > maxMarkerCount)
                 eachMarkerCount = maxMarkerCount / buds.Count;
 
-            int count = 0;
             foreach (Bud bud in buds)
             {
                 for (int i = 0; i < eachMarkerCount; i++)
@@ -417,7 +436,7 @@ namespace TreeManager
                     pts[2] = bud.pos.z + 1.5f * m_perceptionRadius * m_random.Next(-100000000, 100000000) / 100000000.0f;
                     m_KDmarkerPoints.Add(pts);
 
-                    m_KDnodes.Add(count++);
+                    m_KDnodes.Add(0);
                 }
             }
 
@@ -478,7 +497,7 @@ namespace TreeManager
                 pts[1] = y;
                 pts[2] = t.z;
                 m_KDmarkerPoints.Add(pts);
-                m_KDnodes.Add(i);
+                m_KDnodes.Add(0);
 
                 i++;
             }
@@ -488,7 +507,29 @@ namespace TreeManager
             kdtree = BuildKDTree();
         }
 
-        private KdTree<float, int> BuildKDTree()
+        public List<float[]> UpdateMarkerPointsByBrush(Vector3 pt0, Vector3 pt,float radius = 3.0f)   // 根据当前情况生成一组新的markerPointa
+        {
+            m_markerDirs.Add((pt - pt0).normalized);  // 加入新的方向
+
+            List<float[]> res = new List<float[]>();
+
+            for(int i=0; i<300; i++)
+            {
+                float[] tmp = new float[3];
+
+                tmp[0] = pt.x + radius * m_random.Next(-1000000000, 1000000000) / 1000000000.0f;
+                tmp[1] = pt.y + radius * m_random.Next(-1000000000, 1000000000) / 1000000000.0f;
+                tmp[2] = pt.z + radius * m_random.Next(-1000000000, 1000000000) / 1000000000.0f;
+                m_KDmarkerPoints.Add(tmp);
+
+                m_KDnodes.Add(m_markerDirs.Count-1);
+                res.Add(tmp);
+            }
+            
+            return res;
+        }
+
+        public KdTree<float, int> BuildKDTree()
         {
             var _kdtree = new KdTree<float, int>(3, new KdTree.Math.FloatMath());
 
@@ -683,7 +724,7 @@ namespace TreeManager
             }
         }
 
-        private void UpdateBranchRadius()
+        public void UpdateBranchRadius()
         {
             Queue<InterNode> queue = new Queue<InterNode>();
             Stack<InterNode> stack = new Stack<InterNode>();
