@@ -103,7 +103,9 @@ namespace TreeManager
         public bool m_isModified = false;    // 树的形态是否发生修改（这个值被用在基于Lasso生成树处，可见SubThreadLasso()函数）
 
         // 用于生成画刷路径的东西
-        public List<Vector3> m_markerDirs;   // 记录MarkerPoints方向的东西
+        public List<Vector3> m_markerDirs;   // 记录画刷路径结点方向的东西
+        public List<Vector3> m_markerNode;   // 记录画刷路径结点坐标的东西
+        public List<float> m_markerRads;   // 记录画刷路径结点半径的东西
 
         /// <summary>
         /// 构造函数是也，用于初始化变量
@@ -116,6 +118,8 @@ namespace TreeManager
             m_leafMeshes = new List<Mesh>();
             m_selectedMeshes = new List<Mesh>();
             m_markerDirs = new List<Vector3>();
+            m_markerNode = new List<Vector3>();
+            m_markerRads = new List<float>();
 
             m_root = new InterNode();
 
@@ -181,6 +185,9 @@ namespace TreeManager
         {
             m_KDmarkerPoints.Clear();
             m_KDnodes.Clear();
+
+            m_markerNode.Clear();
+            m_markerRads.Clear();
             m_markerDirs.Clear();
         }
         public void ClearAllData()
@@ -233,6 +240,43 @@ namespace TreeManager
 
             m_root = node;
 
+        }
+
+        /****************** 给树重新添加芽 ********************************************************/
+        public void RecreateBuds()
+        {
+            if (m_root == null)  // 如果树为空
+            {
+                InitTree();
+                return;
+            }
+
+            UpdateTreeLevels();
+
+            Queue<InterNode> queue = new Queue<InterNode>();
+            queue.Enqueue(this.m_root);
+
+            while(queue.Count != 0)
+            {
+                InterNode cur = queue.Dequeue();
+
+                if(cur.level == 0)
+                    cur.m_buds.Add(new Bud(0, cur.b, (cur.b - cur.a).normalized));  // 加一个顶芽
+                if(cur.level <= 2)  // 新建一个侧芽
+                {
+                    float radio = m_random.Next(200, 800) / 1000.0f;  // 0.2 - 0.8
+                    Vector3 budDir = GetOneNormalVectorFrom(cur.b - cur.a) * radio + (cur.b - cur.a).normalized * (1.0f - radio);
+                    budDir = Quaternion.AngleAxis(360.0f * m_random.Next(0, 36000) / 36000.0f, (cur.b - cur.a).normalized) * budDir;
+                    budDir.Normalize();
+
+                    Bud newBud = new Bud(1, cur.b, budDir);
+
+                    cur.m_buds.Add(newBud);
+                }
+
+                foreach (InterNode next in cur.m_childs)
+                    queue.Enqueue(next);
+            }
         }
 
         /***************** 【重要】 如果点击了Iterate For Once按钮，树进行一次生长迭代，并更新相关信息********************/
@@ -325,6 +369,18 @@ namespace TreeManager
                     dir = (newInterNodes[i - 1].b - newInterNodes[i - 1].a).normalized;
                 }
 
+                if(m_markerDirs.Count != 0)   // 如果是在Brush模式下,检查是否位于边界
+                {
+                    bool m_isEdge = true;
+                    for(int k=0; k<m_markerDirs.Count; ++k)
+                    {
+                        if ((m_markerNode[k] - pos).sqrMagnitude < 0.95f * m_markerRads[k] * m_markerRads[k])
+                            m_isEdge = false;
+                    }
+
+                    if (m_isEdge)
+                        break;
+                }
 
                 // 根据探测区域计算方向
                 var percepted = kdtree.RadialSearch(new float[3] { pos.x, pos.y, pos.z }, m_perceptionRadius);  // 位于探测区域半径内的点
@@ -332,7 +388,7 @@ namespace TreeManager
                 if (percepted.Length == 0)  // 如果点数非常的少，跳出
                     break;
 
-                Vector3 nextDir = new Vector3(0.0f, 0.0f, 0.0f);
+                Vector3 nextDir = new Vector3(0.0f, 0.0f, 0.0f);  // 新的枝干的方向
                 bool[] isRemoved = new bool[percepted.Length];
                 bool m_isRestUsed = false; // 是否有点被使用了
 
@@ -341,12 +397,13 @@ namespace TreeManager
                     Vector3 _dir = (new Vector3(percepted[k].Point[0], percepted[k].Point[1], percepted[k].Point[2])) - pos;
                     _dir.Normalize();
 
-                    if (Vector3.Dot(_dir, dir) > 0.0f)  // 必须和芽的方向小于90°的Marker points，才能使用
+                    if (Vector3.Dot(_dir, dir) > 0.3f)  // 如果角度合适，则征用该marker
                     {
-                        isRemoved[k] = true;
                         nextDir += _dir;
                         if (m_growthMode == GrowthMode._Brush)  // 如果是Brush模式还要加上这个方向
-                            nextDir += 0.7f * m_markerDirs[percepted[k].Value];
+                            nextDir += 0.4f * m_markerDirs[percepted[k].Value];
+
+                        isRemoved[k] = true;
                         m_isRestUsed = true;
                     }
                     else
@@ -510,10 +567,12 @@ namespace TreeManager
         public List<float[]> UpdateMarkerPointsByBrush(Vector3 pt0, Vector3 pt,float radius = 3.0f)   // 根据当前情况生成一组新的markerPointa
         {
             m_markerDirs.Add((pt - pt0).normalized);  // 加入新的方向
+            m_markerNode.Add(pt);
+            m_markerRads.Add(radius);
 
             List<float[]> res = new List<float[]>();
 
-            for(int i=0; i<300; i++)
+            for(int i=0; i<400; i++)
             {
                 float[] tmp = new float[3];
 

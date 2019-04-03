@@ -101,6 +101,8 @@ public class TreeController : MonoBehaviour
         {
             Debug.Log("线程结束进行刷新");
             m_tree.ClearAllMarkerPoints();
+            ClearBrushMarkerPoints();
+
             UpdateTreeObjects();  // 根据当前的m_tree生成新的Mesh模型
 
             m_thread = null;      // 结束线程
@@ -110,13 +112,6 @@ public class TreeController : MonoBehaviour
             var em = m_particleSystem.emission;
             em.enabled = false;
 
-            foreach (ParticleSystem ps in m_brushParticles)
-                Destroy(ps);
-            m_brushParticles.Clear();
-            foreach (GameObject m in m_brushRender)
-                Destroy(m);
-            m_brushRender.Clear();
-            m_brushPoints.Clear();
 
             // 解出事件锁
             m_tree.m_isUpdateMesh = false;    
@@ -141,6 +136,17 @@ public class TreeController : MonoBehaviour
         m_selectedPart.Clear();  
         
         m_tree.ClearAllData();
+    }
+
+    public void ClearBrushMarkerPoints()
+    {
+        foreach (ParticleSystem ps in m_brushParticles)
+            Destroy(ps);
+        m_brushParticles.Clear();
+        foreach (GameObject m in m_brushRender)
+            Destroy(m);
+        m_brushRender.Clear();
+        m_brushPoints.Clear();
     }
 
     /// <summary>
@@ -360,8 +366,7 @@ public class TreeController : MonoBehaviour
                 // 如果发生了TouchPad的点击事件
                 if (Controller.UPvr_GetKeyDown(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonDown(0))
                 {
-                    //Debug.Log("Click:" + clickObj.name);
-                    // 【1】如果是选择了FreeSketch模式，选择一段枝干，即可开始绘制
+                    // 【1】绘制：在选择FreeSketch模式的基础上，选择一段枝干，即可开始绘制
                     if(m_toggleFreeSketch.isOn && clickObj.CompareTag("Mesh"))
                     {
                         m_n = (m_picoSystem.transform.position - hitInfo.point).normalized;
@@ -370,55 +375,65 @@ public class TreeController : MonoBehaviour
                         m_isFreeSketched = true;
                     }
 
-                    // 【2】如果点击了IterateOnce按钮
-                    if (m_btnIterateOnce.name == clickObj.name)      
-                        OnClick_IterateOnce();
+                    // 【6】绘制：点击Brush按钮，根据当前MarkerPoints创建新的植物
+                    if (m_btnBrush.name == clickObj.name)
+                        Onclick_BrushGenerate();
 
-                    // 【3】如果点击了CheckBox Lasso，开启Lasso绘制模式
+                    // 【2】按钮：IterateOnce按钮，迭代一次
+                    if (m_btnIterateOnce.name == clickObj.name)
+                    {
+                        if(m_tree.m_growthMode == Tree3D.GrowthMode._Free)  // 仅在Free模式下有效
+                            OnClick_IterateOnce();
+                    }
+
+                    // 【3】按钮：CheckBox Lasso，开启Lasso绘制模式
                     if (m_toggleLasso.name == clickObj.name)   
                     {
-                        m_toggleLasso.isOn = !m_toggleLasso.isOn;
-
                         // 删除套索Lasso的点
                         m_lassoPoints.Clear();
                         m_lassoRender.GetComponent<LineRenderer>().positionCount = 0;
 
-                        if (m_toggleLasso.isOn)   // 修改植物生长的参数
-                            m_tree.SetupParameters(Tree3D.GrowthMode._Lasso);
+                        if (m_toggleLasso.isOn)
+                            ChangeMode(Tree3D.GrowthMode._Free);
                         else
-                            m_tree.SetupParameters(Tree3D.GrowthMode._Free);
-                         
-                        if (m_toggleLasso.isOn)  // （暂时不允许两个Toggle同时被勾选）
-                            m_toggleFreeSketch.isOn = false;
+                            ChangeMode(Tree3D.GrowthMode._Lasso);
+                    }
+
+                    // 【5】按钮：CheckBox Brush，开启Brush的绘制模式
+                    if (m_toggleBrush.name == clickObj.name)
+                    {
+                        if (m_toggleBrush.isOn)
+                            ChangeMode(Tree3D.GrowthMode._Free);
+                        else
+                            ChangeMode(Tree3D.GrowthMode._Brush);
 
                     }
-                    // 【4】如果点击了CheckBox FreeSketch，开启FreeSketch绘制模式
+
+                    // 【4】按钮：CheckBox FreeSketch，开启FreeSketch绘制模式
                     if (m_toggleFreeSketch.name == clickObj.name)
                         m_toggleFreeSketch.isOn = !m_toggleFreeSketch.isOn;
 
-                    // 【5】如果点击了CheckBox Brush，开启Brush的绘制模式
-                    if (m_toggleBrush.name == clickObj.name)
-                        m_toggleBrush.isOn = !m_toggleBrush.isOn;
-
-                    // 【6】如果点击了ClearAll按钮，清除所有数据
+                    // 【6】按钮：ClearAll按钮，清除所有数据
                     if (m_btnClearAll.name == clickObj.name)
                     {
                         m_tree.ClearAllMarkerPoints();
+                        ClearBrushMarkerPoints();
                         ClearAllData();
                     }
-
-                    // 【6】如果点击了Brush按钮，根据当前MarkerPoints创建新的植物
-                    if(m_btnBrush.name == clickObj.name)
-                        Onclick_BrushGenerate();
                 }
             }
             return;
         }
 
-
-        DrawingBrush(); // 必须防止在这里，因为该函数修改到了MarkerPoints，如果点击了Button Brush之后，仍会触发造成Index越界
-        DrawingLasso();
-        DrawingFreeSketch();
+        if(!m_toggleFreeSketch.isOn)
+        {
+            DrawingBrush(); // 必须放置在这里，因为该函数修改到了MarkerPoints，如果点击了Button Brush之后，仍会触发造成Index越界
+            DrawingLasso();
+        }
+        else
+        {
+            DrawingFreeSketch();
+        }
     }
 
     /***************一些手柄的交互式操作*****************/
@@ -553,7 +568,7 @@ public class TreeController : MonoBehaviour
         if(Controller.UPvr_GetKeyUp(0,Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonUp(0))
         {
             m_isBrushMouseDone = false;
-            ClearAllData();
+            m_tree.RecreateBuds();  // 重新生成Bud
         }
     }
 
@@ -648,7 +663,27 @@ public class TreeController : MonoBehaviour
         return m_isTriggerDown;
     }
 
+    /************************ 切换绘制模式 **************************/
+    public void ChangeMode(Tree3D.GrowthMode mode)
+    {
+        if(mode == Tree3D.GrowthMode._Free)
+        {
+            m_toggleBrush.isOn = false;
+            m_toggleLasso.isOn = false;
+        }
+        if(mode == Tree3D.GrowthMode._Lasso)
+        {
+            m_toggleLasso.isOn = true;
+            m_toggleBrush.isOn = false;
+        }
+        if(mode == Tree3D.GrowthMode._Brush)
+        {
+            m_toggleBrush.isOn = true;
+            m_toggleLasso.isOn = false;
+        }
 
+        m_tree.SetupParameters(mode);
+    }
 
     /***********【UI测试】，这个函数在Pico设备中没有响应***********/
     int t_count = 0;
