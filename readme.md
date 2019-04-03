@@ -11,4 +11,4 @@ VR course project
 提取码：hsve 
 
 # 新功能Brush的目前效果
-![Result1.png](https://github.com/RyuZhihao123/VR_Tree_Modeling/blob/master/screenshot1.png)
+<div align=center><img width="300" height="240" src="https://img-blog.csdn.net/20161028230559575"/></div>
