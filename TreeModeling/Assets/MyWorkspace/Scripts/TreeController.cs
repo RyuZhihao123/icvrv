@@ -164,6 +164,7 @@ public class TreeController : MonoBehaviour
             return;
 
         // Create MarkerPoints
+        //m_tree.UpdateBranchLength(); 
         m_tree.RecreateMarkerPoints();
 
         // 开启事件锁
@@ -241,9 +242,13 @@ public class TreeController : MonoBehaviour
 
     public void Onclick_BrushGenerate()
     {
+        if (m_thread != null)
+            return;
+
         // 开启生成植物的线程
         if (m_tree.kdtree != null)
             m_tree.kdtree.Clear();
+
         m_tree.kdtree = m_tree.BuildKDTree();
         Debug.Log("MarkerPoints" + m_tree.m_KDmarkerPoints.Count.ToString());
 

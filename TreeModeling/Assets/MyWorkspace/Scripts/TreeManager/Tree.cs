@@ -144,10 +144,10 @@ namespace TreeManager
 
             if(m_growthMode == GrowthMode._Free)   // 自由生长模式下的参数
             {
-                m_occupancyRadius = 1.0f;
-                m_perceptionRadius = 2.0f;
+                m_occupancyRadius = 0.5f;
+                m_perceptionRadius = 1.0f;
                 m_interNodeLength = 0.5f;
-                m_leafSize = 0.15f;
+                m_leafSize = 0.20f;
                 m_gravityFactor = 0.5f;
 
                 m_branchBaseRadius = 0.01f;
@@ -169,7 +169,7 @@ namespace TreeManager
                 m_occupancyRadius = 0.5f;
                 m_perceptionRadius = 1.0f;
                 m_interNodeLength = 0.5f;
-                m_leafSize = 0.15f;
+                m_leafSize = 0.20f;
                 m_gravityFactor = 0.0f;
 
                 m_branchBaseRadius = 0.01f;
@@ -401,7 +401,7 @@ namespace TreeManager
                     {
                         nextDir += _dir;
                         if (m_growthMode == GrowthMode._Brush)  // 如果是Brush模式还要加上这个方向
-                            nextDir += 0.4f * m_markerDirs[percepted[k].Value];
+                            nextDir += 0.3f * m_markerDirs[percepted[k].Value];
 
                         isRemoved[k] = true;
                         m_isRestUsed = true;
@@ -880,9 +880,9 @@ namespace TreeManager
 
                 cur.m_leaves.Clear();
 
-                if(cur.level <= 5)
+                if(cur.level <= 10)  // 5
                 {
-                    for(int i=0; i<10; i++)
+                    for(int i=0; i<5; i++)  //10
                     {
                         float ratio = (float)m_random.Next(1000, 10000) / 10000.0f;
 
@@ -1031,6 +1031,29 @@ namespace TreeManager
             }
 
             return m_leafMeshes;
+        }
+
+        public void UpdateBranchLength()
+        {
+            Queue<InterNode> queue = new Queue<InterNode>();
+            queue.Enqueue(this.m_root);
+
+            while(queue.Count != 0)
+            {
+                InterNode cur = queue.Dequeue();
+                Vector3 dir = cur.b - cur.a;
+                cur.b = cur.a + 1.5f * dir;
+
+                foreach(Bud bud in cur.m_buds)
+                    bud.pos = cur.b;
+
+                foreach(InterNode next in cur.m_childs)
+                {
+                    next.a = cur.b;
+
+                    queue.Enqueue(next);
+                }
+            }
         }
 
         public InterNode GetHitInterNode(Vector3 hitPos)
