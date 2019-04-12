@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Button
   - Mesh
+  - Capsule
   layers:
   - Default
   - TransparentFX

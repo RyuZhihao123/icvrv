@@ -95,7 +95,7 @@ namespace TreeManager
         private float m_branchBaseRadius;    /// 枝干的基础半径（在树的末端枝干处）
         private float m_branchRadiusFactor;  /// 枝干的半径增长率（从树的末端枝干处从上向下半径逐渐增大）
 
-        private float m_gravityFactor;       /// 重力的影响因子
+        public float m_gravityFactor;       /// 重力的影响因子
 
         // public-use
         public bool m_isUpdateMesh = false;  // 监听mesh是否被更新了，如果被更新则在Update()中更新Mesh
@@ -123,7 +123,7 @@ namespace TreeManager
 
             m_root = new InterNode();
 
-            m_faceCount = 5;
+            m_faceCount = 7;   // 5
 
             SetupParameters(GrowthMode._Free);
 
@@ -144,21 +144,21 @@ namespace TreeManager
 
             if(m_growthMode == GrowthMode._Free)   // 自由生长模式下的参数
             {
-                m_occupancyRadius = 0.5f;
-                m_perceptionRadius = 1.0f;
-                m_interNodeLength = 0.5f;
-                m_leafSize = 0.20f;
-                m_gravityFactor = 0.5f;
+                m_occupancyRadius = 0.7f;
+                m_perceptionRadius = 1.4f;
+                m_interNodeLength = 0.7f;
+                m_leafSize = 0.25f;
+                m_gravityFactor = 0.35f;
 
                 m_branchBaseRadius = 0.01f;
-                m_branchRadiusFactor = 1.04f;
+                m_branchRadiusFactor = 1.06f;
             }
             if(m_growthMode == GrowthMode._Lasso)  // 使用Lasso模式下的参数
             {
                 m_occupancyRadius = 0.3f;
                 m_perceptionRadius = 0.7f;
                 m_interNodeLength = 0.3f;
-                m_leafSize = 0.15f;
+                m_leafSize = 0.20f;
                 m_gravityFactor = 0.0f;
 
                 m_branchBaseRadius = 0.01f;
@@ -166,9 +166,9 @@ namespace TreeManager
             }
             if (m_growthMode == GrowthMode._Brush)  // 使用Lasso模式下的参数
             {
-                m_occupancyRadius = 0.5f;
-                m_perceptionRadius = 1.0f;
-                m_interNodeLength = 0.5f;
+                m_occupancyRadius = 0.4f;
+                m_perceptionRadius = 0.8f;
+                m_interNodeLength = 0.4f;
                 m_leafSize = 0.20f;
                 m_gravityFactor = 0.0f;
 
@@ -397,7 +397,7 @@ namespace TreeManager
                     Vector3 _dir = (new Vector3(percepted[k].Point[0], percepted[k].Point[1], percepted[k].Point[2])) - pos;
                     _dir.Normalize();
 
-                    if (Vector3.Dot(_dir, dir) > 0.3f)  // 如果角度合适，则征用该marker
+                    if (Vector3.Dot(_dir, dir) > 0.1f)  // 如果角度合适，则征用该marker
                     {
                         nextDir += _dir;
                         if (m_growthMode == GrowthMode._Brush)  // 如果是Brush模式还要加上这个方向
@@ -428,17 +428,19 @@ namespace TreeManager
                 next.b = pos + m_interNodeLength * nextDir;   //[更新]
 
                 // 为这段新的InterNode添加新的Bud;
-                float radio = m_random.Next(200, 800) / 1000.0f;  // 0.2 - 0.8
-                Vector3 budDir = GetOneNormalVectorFrom(next.b - next.a) * radio + (next.b - next.a).normalized * (1.0f - radio);
-                budDir = Quaternion.AngleAxis(360.0f * m_random.Next(0, 36000) / 36000.0f, (next.b - next.a).normalized) * budDir;
-                budDir.Normalize();
-
-                Bud newBud = new Bud(1, next.b, budDir);
-
-                next.m_buds.Add(newBud);
-
                 if (i == MaxIterCount - 1)
                     next.m_buds.Add(new Bud(0, next.b, (next.b - next.a).normalized));
+                else
+                {
+                    float radio = m_random.Next(200, 800) / 1000.0f;  // 0.2 - 0.8
+                    Vector3 budDir = GetOneNormalVectorFrom(next.b - next.a) * radio + (next.b - next.a).normalized * (1.0f - radio);
+                    budDir = Quaternion.AngleAxis(360.0f * m_random.Next(0, 36000) / 36000.0f, (next.b - next.a).normalized) * budDir;
+                    budDir.Normalize();
+
+                    Bud newBud = new Bud(1, next.b, budDir);
+
+                    next.m_buds.Add(newBud);
+                }
 
                 newInterNodes.Add(next);
             }
@@ -572,7 +574,7 @@ namespace TreeManager
 
             List<float[]> res = new List<float[]>();
 
-            for(int i=0; i<400; i++)
+            for(int i=0; i<600; i++)
             {
                 float[] tmp = new float[3];
 
@@ -657,22 +659,28 @@ namespace TreeManager
                 if (m != 0)
                     dir1 = (parent[m].b - parent[m].a).normalized;
 
-                Vector3 norm = GetOneNormalVectorFrom(dir);
-                Vector3 norm1 = GetOneNormalVectorFrom(dir1);
-                if (Vector3.Dot(norm, norm1) < 0)
-                    norm1 = -norm1;
+                Vector3 norm = GetOneNormalVectorFrom(dir);   // 末端
+                Vector3 norm1 = GetOneNormalVectorFrom(dir1); // 前段
 
                 Vector3[] topPts = new Vector3[m_faceCount];
                 Vector3[] botPts = new Vector3[m_faceCount];
                 Vector3[] faceNorms = new Vector3[m_faceCount];
 
+                // 绘制平面
+                Vector3 m_n = -dir;        // 平面的法向量
+                Vector3 m_a0 = cur.b;  // 平面上的一点
+
                 // 首先生成相应的点
                 for (int i = 0; i < m_faceCount; i++)
                 {
-                    Vector3 t_norm = Quaternion.AngleAxis(i / 6.0f * 360.0f, dir) * norm;
-                    Vector3 t_norm1 = Quaternion.AngleAxis(i / 6.0f * 360.0f, dir1) * norm1;
-                    topPts[i] = cur.b + cur.rb * t_norm;
-                    botPts[i] = cur.a + cur.ra * t_norm1;
+                    Vector3 t_norm = Quaternion.AngleAxis(i / 6.0f * 360.0f, dir1) * norm1;
+                    botPts[i] = cur.a + cur.ra * t_norm;     // 前段
+
+                    Vector3 p0 = botPts[i];
+                    Vector3 u = dir;
+                    float t = (Vector3.Dot(m_n, m_a0) - Vector3.Dot(m_n, p0)) / Vector3.Dot(m_n, u);
+
+                    topPts[i] = p0 + t * u;  // p为手柄射线与平面(n,a)的相交点
 
                     faceNorms[i] = t_norm.normalized;
                 }
@@ -817,19 +825,22 @@ namespace TreeManager
                 }
                 else
                 {
-
+                    float maxR = float.MinValue;
                     float radius = 0;
                     foreach (InterNode c in cur.m_childs)
                     {
-                        radius += c.rb * c.rb;
+                        radius += c.ra * c.ra;
+
+                        if (maxR < c.ra)
+                            maxR = c.ra;
                     }
 
-                    cur.rb = Mathf.Sqrt(radius);
-                    cur.ra = m_branchRadiusFactor * cur.rb;
+                    cur.rb = maxR;
+                    cur.ra = Mathf.Sqrt(radius);
                 }
 
-                if (cur.ra >= 0.4f) cur.ra = 0.4f;
-                if (cur.rb >= 0.4f) cur.rb = 0.4f;
+                if (cur.ra >= 0.24f) cur.ra = 0.24f;
+                if (cur.rb >= 0.24f) cur.rb = 0.24f;
             }
         }
 
@@ -1042,17 +1053,32 @@ namespace TreeManager
             {
                 InterNode cur = queue.Dequeue();
                 Vector3 dir = cur.b - cur.a;
-                cur.b = cur.a + 1.5f * dir;
+                cur.b = cur.a + 1.05f * dir;
 
                 foreach(Bud bud in cur.m_buds)
                     bud.pos = cur.b;
 
                 foreach(InterNode next in cur.m_childs)
                 {
+                    Vector3 tdir = next.b - next.a;
                     next.a = cur.b;
-
+                    next.b = next.a + tdir;
                     queue.Enqueue(next);
                 }
+            }
+        }
+
+        public void UpdateTreeBranchLength()
+        {
+            Queue<InterNode> queue = new Queue<InterNode>();
+            queue.Enqueue(this.m_root);
+
+            while(queue.Count != 0)
+            {
+                InterNode cur = queue.Dequeue();
+
+                foreach (InterNode next in cur.m_childs)
+                    queue.Enqueue(next);
             }
         }
 

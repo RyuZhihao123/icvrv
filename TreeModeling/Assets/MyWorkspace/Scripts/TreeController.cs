@@ -38,6 +38,9 @@ public class TreeController : MonoBehaviour
     public List<ParticleSystem> m_brushParticles; // 绘制Brush的ParticleSystem
     private List<List<Vector3>> m_brushPoints;   // Brush上的路径点（单纯记录的路径点）
 
+    private List<GameObject> m_partobjects;   // 一些Basic的几何体
+    private int m_targetIndex = -1;
+
     public Material m_leafMtl;       // 材质：树叶的材质
     public Material m_barkMtl;       // 材质：树干的材质
 
@@ -82,6 +85,7 @@ public class TreeController : MonoBehaviour
         m_brushRender = new List<GameObject>();
         m_brushPoints = new List<List<Vector3>>();
         m_brushParticles = new List<ParticleSystem>();
+        m_partobjects = new List<GameObject>();
 
         m_ctrlRay = new Ray();
 
@@ -164,7 +168,7 @@ public class TreeController : MonoBehaviour
             return;
 
         // Create MarkerPoints
-        //m_tree.UpdateBranchLength(); 
+        m_tree.UpdateBranchLength(); 
         m_tree.RecreateMarkerPoints();
 
         // 开启事件锁
@@ -353,6 +357,12 @@ public class TreeController : MonoBehaviour
         if (HandleMovingEvent())
             return;
 
+        // 处理新增几何体的操作
+        if (AddNewPart())
+            return;
+
+        ModifiedObject();
+
         // 进行raycast
         RaycastHit hitInfo;
         if (Physics.Raycast(m_ctrlRay, out hitInfo))  // 首先保证线程thread停止，如果指向某个collider
@@ -368,9 +378,11 @@ public class TreeController : MonoBehaviour
 
             if (this.m_thread == null)  // 如果当前没有正在处理的线程thread，就处理TouchPad的点集事件
             {
+                
                 // 如果发生了TouchPad的点击事件
                 if (Controller.UPvr_GetKeyDown(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonDown(0))
                 {
+                    Debug.Log("aaaaaaaaaaaa:" + clickObj.name);
                     // 【1】绘制：在选择FreeSketch模式的基础上，选择一段枝干，即可开始绘制
                     if(m_toggleFreeSketch.isOn && clickObj.CompareTag("Mesh"))
                     {
@@ -378,6 +390,13 @@ public class TreeController : MonoBehaviour
                         m_a0 = hitInfo.point;
 
                         m_isFreeSketched = true;
+                    }
+
+                    // 【2】绘制：如果选中了一个几何体，那么调整他的形态
+                    if(clickObj.CompareTag("Capsule") && m_targetIndex < 0)
+                    {
+                        m_targetIndex = int.Parse(clickObj.name);
+                        Debug.Log("Click" + m_targetIndex.ToString());
                     }
 
                     // 【6】绘制：点击Brush按钮，根据当前MarkerPoints创建新的植物
@@ -411,7 +430,6 @@ public class TreeController : MonoBehaviour
                             ChangeMode(Tree3D.GrowthMode._Free);
                         else
                             ChangeMode(Tree3D.GrowthMode._Brush);
-
                     }
 
                     // 【4】按钮：CheckBox FreeSketch，开启FreeSketch绘制模式
@@ -438,6 +456,55 @@ public class TreeController : MonoBehaviour
         else
         {
             DrawingFreeSketch();
+        }
+    }
+
+    private bool AddNewPart()
+    {
+        if (Controller.UPvr_GetKeyDown(0, Pvr_KeyCode.VOLUMEDOWN) || Input.GetKeyDown(KeyCode.C))
+        {
+            // 绘制平面
+            m_n = (m_picoSystem.transform.position - new Vector3(0, 0, 0)).normalized;
+            m_n.y = 0;
+            m_a0 = new Vector3(0, 0, 0);
+
+            Vector3 p0 = m_ctrlRay.origin;
+            Vector3 u = m_ctrlRay.direction.normalized;
+            float t = (Vector3.Dot(m_n, m_a0) - Vector3.Dot(m_n, p0)) / Vector3.Dot(m_n, u);
+            Vector3 p = p0 + t * u;  // p为手柄射线与平面(n,a)的相交点
+
+            GameObject obj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            obj.name = m_partobjects.Count.ToString();
+            obj.tag = "Capsule";
+            obj.transform.position = p;
+
+            m_partobjects.Add(obj);
+            return true;
+        }
+        return false;
+    }
+
+    private void ModifiedObject()
+    {
+        if (m_targetIndex < 0)
+            return;
+
+        // 绘制平面
+        m_n = (m_picoSystem.transform.position - new Vector3(0, 0, 0)).normalized;
+        m_n.y = 0;
+        m_a0 = new Vector3(0, 0, 0);
+
+        Vector3 p0 = m_ctrlRay.origin;
+        Vector3 u = m_ctrlRay.direction.normalized;
+        float t = (Vector3.Dot(m_n, m_a0) - Vector3.Dot(m_n, p0)) / Vector3.Dot(m_n, u);
+        Vector3 p = p0 + t * u;  // p为手柄射线与平面(n,a)的相交点
+
+        m_partobjects[m_targetIndex].transform.position = p;
+        Debug.Log("xxxxxx" + m_targetIndex.ToString());
+        m_partobjects[m_targetIndex].transform.localRotation = m_picoSystem.transform.localRotation;
+        if(Controller.UPvr_GetKeyUp(0,Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonUp(0))
+        {
+            m_targetIndex = -1;
         }
     }
 
@@ -634,6 +701,10 @@ public class TreeController : MonoBehaviour
         }
 
         // 以下为PC上处理移动（WASD）
+        if (Input.GetKey(KeyCode.G))
+        {
+            m_tree.m_gravityFactor = - 1.0f;
+        }
         if (Input.GetKey(KeyCode.A))
         {
             m_picoSystem.transform.RotateAround(new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f), 0.5f);
