@@ -1,6 +1,6 @@
 VR course project
 
-【New!!!】 对FreeSketch彻底更新完成。
+【New!!!】 对FreeSketch的模块彻底更新完成。
 
 ### 一 版本功能：
 1. 自由生长（FreeGrowth）：通过点击Iterate for Once按钮实现。
