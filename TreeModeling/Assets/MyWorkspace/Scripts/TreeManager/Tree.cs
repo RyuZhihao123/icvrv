@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using KdTree;
+using MyCubicInterp;
 using System;
 
 namespace TreeManager
@@ -151,7 +152,7 @@ namespace TreeManager
                 m_gravityFactor = 0.35f;
 
                 m_branchBaseRadius = 0.01f;
-                m_branchRadiusFactor = 1.06f;
+                m_branchRadiusFactor = 1.1f;
             }
             if(m_growthMode == GrowthMode._Lasso)  // 使用Lasso模式下的参数
             {
@@ -228,6 +229,15 @@ namespace TreeManager
             InitTree();
         }
 
+        public bool IsEmpty()
+        {
+            if (m_root == null)
+                return true;
+            if (m_root != null && m_root.m_childs.Count == 0)
+                return true;
+            return false;
+        }
+
         /*******************初始化树，为树建立一个最初的芽********************************/
         public void InitTree()
         {
@@ -286,7 +296,7 @@ namespace TreeManager
 
             IterateOnce();   // 进行一轮迭代（根据Marker Points对当前所有的芽进行一次更新）
 
-            Interpolation();  // 进行一次简单的插值，使得枝干相对光滑（这个函数后面会换成其他更好的插值算法）
+            BranchInterpolation();  // 进行一次简单的插值，使得枝干相对光滑（这个函数后面会换成其他更好的插值算法）
             UpdateBranchRadius(); // 计算所有枝干的半径
             UpdateTreeLevels();   // 计算所有枝干的所属层次（自顶向下）
             UpdateLeaves();       // 生成树叶
@@ -736,7 +746,7 @@ namespace TreeManager
             return this.m_meshes;
         }
 
-        private void Interpolation()
+        private void BranchInterpolation()
         {
             // 每次Interpolation是对InterNode的half-interpolate
             Queue<InterNode> queue = new Queue<InterNode>(); // for traverse
@@ -1113,18 +1123,45 @@ namespace TreeManager
             if (points.Count < 2)
                 return;
 
-            InterNode cur = GetHitInterNode(points[0]);  // 根据首个点的坐标获取到点击的internode
+            InterNode cur = null;  // 根据首个点的坐标获取到点击的internode
 
-            if (cur == null)
-                return;
+            if (IsEmpty())
+            {
+                cur = m_root;
+                m_root.b = points[0];
+                cur.m_buds.Clear();
+            }
+            else
+            {
+                cur = GetHitInterNode(points[0]);
 
-            for(int i=0; i<points.Count-1; i++)
+                if (cur == null)
+                    return;
+
+                points[0] = cur.a;
+            }
+
+            List<Vector3> interpPoints = Interp3D(Interp3D(points));  // 插值两次
+
+            for(int i=0; i< interpPoints.Count-1; i++)
             {
                 InterNode tmp = new InterNode();
-                tmp.a = points[i];
-                tmp.b = points[i + 1];
+                tmp.a = interpPoints[i];
+                tmp.b = interpPoints[i + 1];
 
                 cur.m_childs.Add(tmp);
+
+                if ( (float)i/ interpPoints.Count > 0.3f && i%2==0)  // 新建一个侧芽
+                {
+                    float radio = m_random.Next(200, 800) / 1000.0f;  // 0.2 - 0.8
+                    Vector3 budDir = GetOneNormalVectorFrom(cur.b - cur.a) * radio + (cur.b - cur.a).normalized * (1.0f - radio);
+                    budDir = Quaternion.AngleAxis(360.0f * m_random.Next(0, 36000) / 36000.0f, (cur.b - cur.a).normalized) * budDir;
+                    budDir.Normalize();
+
+                    Bud newBud = new Bud(1, cur.b, budDir);
+
+                    cur.m_buds.Add(newBud);
+                }
 
                 cur = tmp;
             }
@@ -1154,6 +1191,46 @@ namespace TreeManager
                     ((pointX - endX) < (pointY - endY) * (startX - endX) / (startY - endY));
             }
             return inside;
+        }
+
+        private List<Vector3> Interp3D(List<Vector3> input)
+        {
+            int N = input.Count;
+            double Fs = 20.0;
+
+            // Input Data
+            double[] ox = new double[N];
+            double[] x = new double[N];
+            double[] y = new double[N];
+            double[] z = new double[N];
+
+            for (int i = 0; i < N; i++)
+            {
+                ox[i] = i / Fs;
+                x[i] = input[i].x;
+                y[i] = input[i].y;
+                z[i] = input[i].z;
+            }
+
+            // Ouput Data
+            double[] ox1 = new double[2 * N - 1];
+            double[] x1 = null;
+            double[] y1 = null;
+            double[] z1 = null;
+
+            for (int i = 0; i < ox1.Length; i++)
+                ox1[i] = i / (2.0 * Fs);
+
+            x1 = Interpolation.CubicInterpolation(ox, x, ox1);
+            y1 = Interpolation.CubicInterpolation(ox, y, ox1);
+            z1 = Interpolation.CubicInterpolation(ox, z, ox1);
+
+            List<Vector3> output = new List<Vector3>();
+            for (int i=0; i<ox1.Length; i++)
+            {
+                output.Add(new Vector3((float)x1[i], (float)y1[i], (float)z1[i]));
+            }
+            return output;
         }
     }
 }

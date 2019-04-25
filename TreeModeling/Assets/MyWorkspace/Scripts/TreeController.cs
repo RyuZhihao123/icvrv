@@ -360,7 +360,6 @@ public class TreeController : MonoBehaviour
         // 处理新增几何体的操作
         if (AddNewPart())
             return;
-
         ModifiedObject();
 
         // 进行raycast
@@ -387,6 +386,7 @@ public class TreeController : MonoBehaviour
                     if(m_toggleFreeSketch.isOn && clickObj.CompareTag("Mesh"))
                     {
                         m_n = (m_picoSystem.transform.position - hitInfo.point).normalized;
+                        m_n.y = 0.0f;
                         m_a0 = hitInfo.point;
 
                         m_isFreeSketched = true;
@@ -448,7 +448,18 @@ public class TreeController : MonoBehaviour
             return;
         }
 
-        if(!m_toggleFreeSketch.isOn)
+        // 绘制：在选择FreeSketch模式的基础上，且树为空，则绘制一段branch
+        if (m_toggleFreeSketch.isOn && m_tree.IsEmpty()
+            && (Controller.UPvr_GetKeyDown(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonDown(0)))
+        {
+            m_n = (m_picoSystem.transform.position - hitInfo.point).normalized;
+            m_n.y = 0.0f;
+            m_a0 = new Vector3(0.0f,0.0f,0.0f);
+
+            m_isFreeSketched = true;
+        }
+
+        if (!m_toggleFreeSketch.isOn)
         {
             DrawingBrush(); // 必须放置在这里，因为该函数修改到了MarkerPoints，如果点击了Button Brush之后，仍会触发造成Index越界
             DrawingLasso();
@@ -668,7 +679,7 @@ public class TreeController : MonoBehaviour
             Vector3 p = p0 + t * u;  // p为手柄射线与平面(n,a)的相交点
 
             if (m_sketchPoints.Count == 0   // 如果手柄的位移量最够大
-                || Vector3.Distance(p, m_sketchPoints[m_sketchPoints.Count - 1]) > 0.1)
+                || Vector3.Distance(p, m_sketchPoints[m_sketchPoints.Count - 1]) > 1.0)
             {
                 // 将点加入到lineRenderer中
                 m_SketchRender.GetComponent<LineRenderer>().positionCount = m_sketchPoints.Count;

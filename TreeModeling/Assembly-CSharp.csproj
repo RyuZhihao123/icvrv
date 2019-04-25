@@ -74,6 +74,7 @@
     <Compile Include="Assets\MyWorkspace\Scripts\KdTree\Math\TypeMath.cs" />
     <Compile Include="Assets\MyWorkspace\Scripts\KdTree\NearestNeighbourList.cs" />
     <Compile Include="Assets\MyWorkspace\Scripts\KdTree\PriorityQueue.cs" />
+    <Compile Include="Assets\MyWorkspace\Scripts\MathLibrary\CubicInterp.cs" />
     <Compile Include="Assets\MyWorkspace\Scripts\TreeController.cs" />
     <Compile Include="Assets\MyWorkspace\Scripts\TreeManager\Tree.cs" />
     <Compile Include="Assets\PicoMobileSDK\Pvr_Audio3D\API\Pvr_Audio3DAPI.cs" />
