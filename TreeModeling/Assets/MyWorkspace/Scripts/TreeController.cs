@@ -348,6 +348,8 @@ public class TreeController : MonoBehaviour
 
     // 记录Edit选中的InterNode
     private InterNode m_editRoot = null;
+    private InterNode m_parentNode = null;
+
     private Quaternion m_formalControllerRotation;
     
 
@@ -371,9 +373,11 @@ public class TreeController : MonoBehaviour
 
         // 处理Edit的移动操作
         if ( m_toggleEdit.isOn && m_editRoot != null 
-            &&Controller.UPvr_GetKeyUp(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonUp(0))  // 如果
+            && (Controller.UPvr_GetKeyUp(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonUp(0)))   // 释放edit info
         {
             m_editRoot = null;
+            m_parentNode = null;
+            m_tree.ResetEditNodes();
             m_tree.UpdateLeaves();
             UpdateTreeObjects();
         }
@@ -410,7 +414,7 @@ public class TreeController : MonoBehaviour
                     }
 
                     // 【2】编辑：如果在Editting模式下，选择一段枝干之后可以进行编辑
-                    if(m_toggleEdit.isOn && clickObj.CompareTag("Mesh"))
+                    if(m_toggleEdit.isOn && clickObj.CompareTag("Mesh") && m_editRoot == null)
                     {
                         m_n = (m_picoSystem.transform.position - hitInfo.point).normalized;
                         m_n.y = 0.0f;
@@ -419,7 +423,24 @@ public class TreeController : MonoBehaviour
                         m_formalControllerRotation = m_controller0.transform.rotation;
 
                         m_editRoot = m_tree.GetHitInfo(hitInfo.point);
+                        m_parentNode = m_tree.GetParentNode(m_editRoot);
 
+                        // 从m_parentNode的children那里把m_editRoot先剥离出去
+                        int _id = -1;
+                        float _min = float.MaxValue;
+
+                        for (int i = 0; i < m_parentNode.m_childs.Count; ++i)
+                        {
+                            float dist = Vector3.Distance(m_parentNode.m_childs[i].b, m_editRoot.b);
+                            if (dist < 0.01f && _min > dist)
+                            {
+                                _min = dist;
+                                _id = i;
+                            }
+                        }
+
+                        if (_id != -1)
+                            m_parentNode.m_childs.RemoveAt(_id);
                     }
 
                     // 【2】绘制：如果选中了一个几何体，那么调整他的形态
@@ -530,6 +551,7 @@ public class TreeController : MonoBehaviour
         return false;
     }
 
+    
     private void ModifiedObject()
     {
         if (m_targetIndex < 0)
@@ -564,13 +586,14 @@ public class TreeController : MonoBehaviour
         Vector3 u = m_ctrlRay.direction.normalized;
         float t = (Vector3.Dot(m_n, m_a0) - Vector3.Dot(m_n, p0)) / Vector3.Dot(m_n, u);
         Vector3 p = p0 + t * u;  // p为手柄射线与平面(n,a)的相交点
-        Debug.Log("Move: "+p.ToString());
 
         // 计算旋转情况
         float angle = Quaternion.Angle(m_formalControllerRotation, m_controller0.transform.rotation);
         m_formalControllerRotation = m_controller0.transform.rotation;
+
+        //Debug.Log("Move: " + p.ToString() + " Angle:" + angle.ToString()+"  Childs: "+ m_parentNode.m_childs.Count.ToString());
         // move
-        m_tree.MoveTreePartTo(m_editRoot, p, m_n.normalized ,angle);
+        m_tree.MoveTreePartTo(m_editRoot, p, m_n.normalized ,angle,m_parentNode);
         
         UpdateTreeObjects();
     }

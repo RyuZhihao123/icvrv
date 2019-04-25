@@ -47,6 +47,7 @@ namespace TreeManager
         public int level;  //  该枝段按从顶向下的顺序所属的层次（即从树叶段向根节点的顺序）
         
         public bool m_isInterpolated;   // （无需关注）Tag: 是否已经被插值过了，用来禁止Tree::Interpolation()函数的修改
+        public bool m_isEditTmpNode = false;    // Tag:是否是在editmode中临时生成的Node
 
         public bool isSelected;         // （暂时未被使用）用来标记该枝段是否被手柄选中
 
@@ -999,8 +1000,8 @@ namespace TreeManager
                     queue.Enqueue(next);
             }
 
-            if (min < 0.05)  // 保证获得的mindist足够接近
-                return null;
+            /*if (min < 0.05)  // 保证获得的mindist足够接近
+                return null;*/
 
             return parent;
         }
@@ -1205,14 +1206,32 @@ namespace TreeManager
         /// </summary>
         /// <param name="rt"> root pointer</param>
         /// <param name="pos"> target position</param>
-        public void MoveTreePartTo(InterNode rt, Vector3 pos, Vector3 axis, float angle)
+        public void MoveTreePartTo(InterNode rt, Vector3 pos, Vector3 axis, float angle,InterNode parent)
         {
             Vector3 delta = pos - rt.a;   // 移动的位移向量
             Vector3 startPosA = rt.a;      // 记录：移动前的起始坐标
-            Vector3 startPosB = rt.b;  
-            InterNode parent = GetParentNode(rt);   // 父亲结点
+            Vector3 startPosB = rt.b;
 
+            // 首先删除之前生成的InterNode
             Queue<InterNode> queue = new Queue<InterNode>();
+            queue.Enqueue(parent);
+
+            while(queue.Count != 0)
+            {
+                InterNode cur = queue.Dequeue();
+
+                for(int i=0; i< cur.m_childs.Count; ++i)
+                {
+                    if(cur.m_childs[i].m_isEditTmpNode)
+                    {
+                        queue.Enqueue(cur.m_childs[i]);
+                        cur.m_childs.RemoveAt(i);
+                        i = i - 1;
+                    }
+                }
+            }
+
+            // 从rt开始遍历，让后续的均发生偏移
             queue.Enqueue(rt);
 
             while(queue.Count != 0)
@@ -1222,8 +1241,8 @@ namespace TreeManager
                 cur.a += delta;
                 cur.b += delta;
 
-                cur.a = Quaternion.AngleAxis(angle, axis) * cur.a;
-                cur.b = Quaternion.AngleAxis(angle, axis) * cur.b;
+                /*cur.a = Quaternion.AngleAxis(angle, axis) * cur.a;
+                cur.b = Quaternion.AngleAxis(angle, axis) * cur.b;*/
 
                 foreach (Bud bud in cur.m_buds)
                 {
@@ -1235,9 +1254,99 @@ namespace TreeManager
             }
 
             // 把缺失的interval parts补充进来（通过cubic interpolation）
+            /*InterNode tmp = new InterNode();
+            tmp.a = parent.b;
+            tmp.b = rt.a;
+            tmp.m_isEditTmpNode = true;
+            parent.m_childs.Add(tmp);
+            tmp.m_childs.Add(rt);*/
+
+            List<Vector3> input = new List<Vector3>();   // 样条的节点
+            input.Add(parent.a);   // 0
+            input.Add(parent.b);   // 1
+            input.Add(rt.a);       // 2
+            input.Add(rt.b);       // 3
+
+            // 因为样条节点只有四个太少了，因此再新加几个点
+            queue.Enqueue(rt);
+            while(queue.Count!= 0)
+            {
+                InterNode cur = queue.Dequeue();
+                input.Add(cur.b);
+                if(cur.m_childs.Count != 0)
+                    queue.Enqueue(cur.m_childs[0]);
+            }
+
+            int N = input.Count;
+
+            double[] ox = new double[N];
+            double[] x = new double[N];
+            double[] y = new double[N];
+            double[] z = new double[N];
+
+            for (int i = 0; i < N; i++)
+            {
+                ox[i] = i;
+                x[i] = input[i].x;
+                y[i] = input[i].y;
+                z[i] = input[i].z;
+            }
+
+            CubicInterpolation cubic1 = new CubicInterpolation();
+            CubicInterpolation cubic2 = new CubicInterpolation();
+            CubicInterpolation cubic3 = new CubicInterpolation();
+            cubic1.CalcCoefficients(ox, x);
+            cubic2.CalcCoefficients(ox, y);
+            cubic3.CalcCoefficients(ox, z);
+
+            List<Vector3> output = new List<Vector3>();
+
+            float step = m_interNodeLength/Vector3.Distance(parent.b, rt.a);  //
+            for (float i = 1; i < 2; i+=step )
+            {
+                float _x = (float)cubic1.Interpolate(i);
+                float _y = (float)cubic2.Interpolate(i);
+                float _z = (float)cubic3.Interpolate(i);
+                output.Add(new Vector3(_x, _y, _z));
+            }
+            output.Add(rt.a);
+
+            // 循环创建InterNode
+            List<InterNode> tmpNodes = new List<InterNode>();
+
+            for (int i = 0; i < output.Count - 1; ++i)
+            {
+                InterNode tmp = new InterNode();
+                tmp.a = output[i];
+                tmp.b = output[i + 1];
+                tmp.m_isEditTmpNode = true;
+                tmpNodes.Add(tmp);
+
+                if (i != 0)
+                    tmpNodes[i - 1].m_childs.Add(tmpNodes[i]);  // 衔接
+            }
+            Debug.Log("Input:"+input.Count.ToString()+" NewNodes:" + output.Count.ToString() + "  Step: " + step.ToString());
+            parent.m_childs.Add(tmpNodes[0]);
+            tmpNodes[tmpNodes.Count - 1].m_childs.Add(rt);
 
             UpdateBranchRadius();
             UpdateTreeLevels();
+        }
+
+        public void ResetEditNodes()
+        {
+            Queue<InterNode> queue = new Queue<InterNode>();
+            queue.Enqueue(this.m_root);
+
+            while(queue.Count != 0)
+            {
+                InterNode cur = queue.Dequeue();
+
+                cur.m_isEditTmpNode = false;
+
+                foreach (InterNode next in cur.m_childs)
+                    queue.Enqueue(next);
+            }
         }
 
         public bool IsPointInPolygon(Vector2 point, Vector2[] polygon)

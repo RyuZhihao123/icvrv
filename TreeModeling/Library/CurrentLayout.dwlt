@@ -21,7 +21,7 @@ MonoBehaviour:
   m_ShowMode: 4
   m_Title: 
   m_RootView: {fileID: 2}
-  m_MinSize: {x: 950, y: 474}
+  m_MinSize: {x: 950, y: 498}
   m_MaxSize: {x: 10000, y: 10000}
 --- !u!114 &2
 MonoBehaviour:
@@ -45,7 +45,7 @@ MonoBehaviour:
     y: 0
     width: 1536
     height: 781
-  m_MinSize: {x: 950, y: 474}
+  m_MinSize: {x: 950, y: 498}
   m_MaxSize: {x: 10000, y: 10000}
 --- !u!114 &3
 MonoBehaviour:
@@ -113,10 +113,10 @@ MonoBehaviour:
     y: 30
     width: 1536
     height: 731
-  m_MinSize: {x: 915, y: 424}
-  m_MaxSize: {x: 22010, y: 10024}
+  m_MinSize: {x: 917, y: 448}
+  m_MaxSize: {x: 22012, y: 10024}
   vertical: 0
-  controlID: 1107
+  controlID: 4818
 --- !u!114 &6
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -138,10 +138,10 @@ MonoBehaviour:
     y: 0
     width: 821
     height: 731
-  m_MinSize: {x: 202, y: 424}
-  m_MaxSize: {x: 4002, y: 8024}
+  m_MinSize: {x: 202, y: 448}
+  m_MaxSize: {x: 4002, y: 8048}
   vertical: 1
-  controlID: 1108
+  controlID: 4819
 --- !u!114 &7
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -461,9 +461,9 @@ MonoBehaviour:
   m_SceneHierarchy:
     m_TreeViewState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: bc240000
+      m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: befbffff
+      m_ExpandedIDs: b6fbffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -525,7 +525,7 @@ MonoBehaviour:
     m_ShowAllHits: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/MyWorkspace/Scripts/MathLibrary
+    - Assets/MyWorkspace/Scripts
   m_ViewMode: 0
   m_StartGridSize: 64
   m_LastFolders:
@@ -538,7 +538,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: ea260000
     m_LastClickedID: 9962
-    m_ExpandedIDs: ffffffff00000000ec260000fc2600000e2700005a2700006027000088270000b2270000ca270000de270000142800001c2800002c2800003c280000602800007a290000ce290000f4290000142b0000462b0000fe2b0000162c0000262c00002c2c0000362c0000502c00005e2c0000882c0000
+    m_ExpandedIDs: ffffffff00000000f62600000627000018270000642700006a27000092270000bc270000d4270000e82700001e2800002628000036280000462800006a28000084290000d8290000fe2900001e2b0000502b0000082c0000202c0000302c0000362c0000402c00005a2c0000682c0000922c0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -566,7 +566,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: ffffffff00000000ec260000fc2600000e2700005a2700006027000088270000b2270000ca270000de270000142800001c2800002c2800003c280000602800007a290000ce290000f4290000142b0000462b0000fe2b0000162c0000262c00002c2c0000362c0000502c00005e2c0000882c0000
+    m_ExpandedIDs: ffffffff00000000f62600000627000018270000642700006a27000092270000bc270000d4270000e82700001e2800002628000036280000462800006a28000084290000d8290000fe2900001e2b0000502b0000082c0000202c0000302c0000362c0000402c00005a2c0000682c0000922c0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
