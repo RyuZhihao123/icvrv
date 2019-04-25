@@ -976,6 +976,35 @@ namespace TreeManager
             return tmp;
         }
 
+        public InterNode GetParentNode(InterNode pt)  // 根据pt获取到父亲结点
+        {
+            InterNode parent = null;
+            float min = float.MaxValue;
+            Queue<InterNode> queue = new Queue<InterNode>();
+            queue.Enqueue(this.m_root);
+
+            while(queue.Count != 0)
+            {
+                InterNode cur = queue.Dequeue();
+
+                float dist = Vector3.Distance(pt.a, cur.b);
+
+                if(dist < min)
+                {
+                    min = dist;
+                    parent = cur;
+                }
+
+                foreach (InterNode next in cur.m_childs)
+                    queue.Enqueue(next);
+            }
+
+            if (min < 0.05)  // 保证获得的mindist足够接近
+                return null;
+
+            return parent;
+        }
+
         public List<Mesh> GetLeafMesh()
         {
             foreach (Mesh m in m_leafMeshes)
@@ -1169,6 +1198,46 @@ namespace TreeManager
             UpdateBranchRadius();
             UpdateTreeLevels();
             UpdateLeaves();
+        }
+
+        /// <summary>
+        /// 将以rt为root的tree part移动到pos位置
+        /// </summary>
+        /// <param name="rt"> root pointer</param>
+        /// <param name="pos"> target position</param>
+        public void MoveTreePartTo(InterNode rt, Vector3 pos, Vector3 axis, float angle)
+        {
+            Vector3 delta = pos - rt.a;   // 移动的位移向量
+            Vector3 startPosA = rt.a;      // 记录：移动前的起始坐标
+            Vector3 startPosB = rt.b;  
+            InterNode parent = GetParentNode(rt);   // 父亲结点
+
+            Queue<InterNode> queue = new Queue<InterNode>();
+            queue.Enqueue(rt);
+
+            while(queue.Count != 0)
+            {
+                InterNode cur = queue.Dequeue();
+
+                cur.a += delta;
+                cur.b += delta;
+
+                cur.a = Quaternion.AngleAxis(angle, axis) * cur.a;
+                cur.b = Quaternion.AngleAxis(angle, axis) * cur.b;
+
+                foreach (Bud bud in cur.m_buds)
+                {
+                    bud.pos += delta;
+                }
+
+                foreach (InterNode next in cur.m_childs)
+                    queue.Enqueue(next);
+            }
+
+            // 把缺失的interval parts补充进来（通过cubic interpolation）
+
+            UpdateBranchRadius();
+            UpdateTreeLevels();
         }
 
         public bool IsPointInPolygon(Vector2 point, Vector2[] polygon)

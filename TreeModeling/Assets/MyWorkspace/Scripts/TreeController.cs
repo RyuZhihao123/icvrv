@@ -23,6 +23,7 @@ public class TreeController : MonoBehaviour
     public Toggle m_toggleLasso;     // 开关按钮：是否绘制Lasso的check box
     public Toggle m_toggleFreeSketch;// 开关按钮：是否进行FreeSketck的check box
     public Toggle m_toggleBrush;     // 开关按钮：是否进行Brush的check box
+    public Toggle m_toggleEdit;      // 开关按钮：是否对Treemesh进行interactive editting
 
     // 场景中的物体们
     public ParticleSystem m_particleSystem;  // 粒子系统（生成植物的绿光效果）
@@ -60,6 +61,7 @@ public class TreeController : MonoBehaviour
     private bool m_isLassoMouseDone = false; // 手柄是否在绘制套索Lasso
     private bool m_isFreeSketched = false;   // 手柄是否在进行FreeSketch
     private bool m_isBrushMouseDone = false; // 手柄是否在进行Brush绘制
+    private bool m_isEditMesh = false;       // 手柄是否在编辑TreeStructure
 
     private Thread m_thread;   // 【线程】，因为生成算法耗时，因此生成过程放在线程中完成
 
@@ -344,6 +346,11 @@ public class TreeController : MonoBehaviour
         }
     }
 
+    // 记录Edit选中的InterNode
+    private InterNode m_editRoot = null;
+    private Quaternion m_formalControllerRotation;
+    
+
     /// <summary>
     /// 处理Pico手柄的事件：移动，点击等
     /// </summary>
@@ -361,6 +368,16 @@ public class TreeController : MonoBehaviour
         if (AddNewPart())
             return;
         ModifiedObject();
+
+        // 处理Edit的移动操作
+        if ( m_toggleEdit.isOn && m_editRoot != null 
+            &&Controller.UPvr_GetKeyUp(0, Pvr_KeyCode.TOUCHPAD) || Input.GetMouseButtonUp(0))  // 如果
+        {
+            m_editRoot = null;
+            m_tree.UpdateLeaves();
+            UpdateTreeObjects();
+        }
+        MoveTreePart();
 
         // 进行raycast
         RaycastHit hitInfo;
@@ -390,6 +407,19 @@ public class TreeController : MonoBehaviour
                         m_a0 = hitInfo.point;
 
                         m_isFreeSketched = true;
+                    }
+
+                    // 【2】编辑：如果在Editting模式下，选择一段枝干之后可以进行编辑
+                    if(m_toggleEdit.isOn && clickObj.CompareTag("Mesh"))
+                    {
+                        m_n = (m_picoSystem.transform.position - hitInfo.point).normalized;
+                        m_n.y = 0.0f;
+                        m_a0 = hitInfo.point;
+
+                        m_formalControllerRotation = m_controller0.transform.rotation;
+
+                        m_editRoot = m_tree.GetHitInfo(hitInfo.point);
+
                     }
 
                     // 【2】绘制：如果选中了一个几何体，那么调整他的形态
@@ -432,9 +462,14 @@ public class TreeController : MonoBehaviour
                             ChangeMode(Tree3D.GrowthMode._Brush);
                     }
 
+
+
                     // 【4】按钮：CheckBox FreeSketch，开启FreeSketch绘制模式
                     if (m_toggleFreeSketch.name == clickObj.name)
                         m_toggleFreeSketch.isOn = !m_toggleFreeSketch.isOn;
+
+                    if (m_toggleEdit.name == clickObj.name)
+                        m_toggleEdit.isOn = !m_toggleEdit.isOn;
 
                     // 【6】按钮：ClearAll按钮，清除所有数据
                     if (m_btnClearAll.name == clickObj.name)
@@ -517,6 +552,27 @@ public class TreeController : MonoBehaviour
         {
             m_targetIndex = -1;
         }
+    }
+
+    private void MoveTreePart()
+    {
+        if (m_editRoot == null || !m_toggleEdit.isOn)
+            return;
+
+        // 计算移动的位置
+        Vector3 p0 = m_ctrlRay.origin;
+        Vector3 u = m_ctrlRay.direction.normalized;
+        float t = (Vector3.Dot(m_n, m_a0) - Vector3.Dot(m_n, p0)) / Vector3.Dot(m_n, u);
+        Vector3 p = p0 + t * u;  // p为手柄射线与平面(n,a)的相交点
+        Debug.Log("Move: "+p.ToString());
+
+        // 计算旋转情况
+        float angle = Quaternion.Angle(m_formalControllerRotation, m_controller0.transform.rotation);
+        m_formalControllerRotation = m_controller0.transform.rotation;
+        // move
+        m_tree.MoveTreePartTo(m_editRoot, p, m_n.normalized ,angle);
+        
+        UpdateTreeObjects();
     }
 
     /***************一些手柄的交互式操作*****************/
