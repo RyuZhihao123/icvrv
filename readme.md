@@ -20,4 +20,4 @@ At the same time, I further arranged this project and submitted as my first pape
 
 
 
-<div align=center><img width="600" height="550" src="https://github.com/RyuZhihao123/VR_Tree_Modeling/blob/master/3.png"/></div>
+<div align=center><img width="350" height="330" src="https://github.com/RyuZhihao123/VR_Tree_Modeling/blob/master/3.png"/></div>
